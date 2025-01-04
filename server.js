@@ -1,29 +1,42 @@
-// server.js
 const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
-require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Middleware
+// Enable CORS for all routes
 app.use(cors());
 app.use(express.json());
+
+// Basic root route for health check
+app.get('/', (req, res) => {
+    res.send('Server is running');
+});
 
 // Database configuration
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
-        rejectUnauthorized: false
+        rejectUnauthorized: false // Required for Render
     }
 });
 
-// Create expense or update existing
-app.post('/expenses', async (req, res) => {
-    const { name, object_name, rupees } = req.body;
+// Test database connection
+pool.connect((err, client, release) => {
+    if (err) {
+        console.error('Error connecting to database:', err);
+    } else {
+        console.log('Connected to database successfully');
+        release();
+    }
+});
 
+app.post('/expenses', async (req, res) => {
     try {
+        const { name, object_name, rupees } = req.body;
+        console.log('Received request:', { name, object_name, rupees });
+
         // Check if name exists
         const checkResult = await pool.query(
             'SELECT id, rupees FROM expenses WHERE name = $1',
@@ -34,11 +47,9 @@ app.post('/expenses', async (req, res) => {
         let isNew = false;
 
         if (checkResult.rows.length > 0) {
-            // Update existing record
             const currentRupees = parseFloat(checkResult.rows[0].rupees);
             const newRupees = currentRupees + rupees;
 
-            // Get current objects
             const objResult = await pool.query(
                 'SELECT object_names FROM expenses WHERE name = $1',
                 [name]
@@ -51,7 +62,6 @@ app.post('/expenses', async (req, res) => {
                 [newRupees, newObjects, name]
             );
         } else {
-            // Insert new record
             result = await pool.query(
                 'INSERT INTO expenses (name, object_names, rupees) VALUES ($1, $2, $3) RETURNING *',
                 [name, object_name, rupees]
@@ -65,12 +75,11 @@ app.post('/expenses', async (req, res) => {
             totalRupees: result.rows[0].rupees
         });
     } catch (error) {
-        console.error('Database error:', error);
-        res.status(500).json({ error: 'Database error occurred' });
+        console.error('Error in /expenses:', error);
+        res.status(500).json({ error: error.message });
     }
 });
 
-// Get total for a name
 app.get('/expenses/:name/total', async (req, res) => {
     try {
         const result = await pool.query(
@@ -78,17 +87,21 @@ app.get('/expenses/:name/total', async (req, res) => {
             [req.params.name]
         );
 
-        if (result.rows.length > 0) {
-            res.json({ total: result.rows[0].rupees });
-        } else {
-            res.json({ total: 0 });
-        }
+        res.json({
+            total: result.rows.length > 0 ? result.rows[0].rupees : 0
+        });
     } catch (error) {
-        console.error('Database error:', error);
-        res.status(500).json({ error: 'Database error occurred' });
+        console.error('Error in /expenses/total:', error);
+        res.status(500).json({ error: error.message });
     }
 });
 
-app.listen(port, () => {
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({ error: 'Something broke!' });
+});
+
+app.listen(port, '0.0.0.0', () => {
     console.log(`Server running on port ${port}`);
 });
