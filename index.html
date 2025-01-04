@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Expense Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: #f0f2f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #1a73e8;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #1a73e8;
+            box-shadow: 0 0 0 2px rgba(26,115,232,0.2);
+        }
+
+        .amount-fields {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .total-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+
+        .total-amount {
+            font-size: 24px;
+            color: #1a73e8;
+            font-weight: bold;
+        }
+
+        .btn {
+            background: #1a73e8;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            width: 100%;
+            transition: background 0.3s;
+        }
+
+        .btn:hover {
+            background: #1557b0;
+        }
+
+        .expenses-list {
+            margin-top: 30px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+
+        .delete-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .delete-btn:hover {
+            background: #c82333;
+        }
+
+        @media (max-width: 600px) {
+            .amount-fields {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Expense Tracker</h1>
+        
+        <form id="expenseForm">
+            <div class="form-group">
+                <label for="name">Name</label>
+                <input type="text" id="name" required>
+            </div>
+
+            <div class="form-group">
+                <label for="objectName">Object Name</label>
+                <input type="text" id="objectName" required>
+            </div>
+
+            <div class="amount-fields">
+                <div class="form-group">
+                    <label for="amount1">Amount 1 (₹)</label>
+                    <input type="number" id="amount1" min="0" step="0.01" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="amount2">Amount 2 (₹)</label>
+                    <input type="number" id="amount2" min="0" step="0.01" required>
+                </div>
+            </div>
+
+            <div class="total-section">
+                <label>Total Amount:</label>
+                <div class="total-amount">₹ <span id="totalAmount">0.00</span></div>
+            </div>
+
+            <button type="submit" class="btn">Add Expense</button>
+        </form>
+
+        <div class="expenses-list">
+            <h2>Recent Expenses</h2>
+            <table id="expensesTable">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Object</th>
+                        <th>Amount 1</th>
+                        <th>Amount 2</th>
+                        <th>Total</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        class ExpenseTracker {
+            constructor() {
+                this.expenses = JSON.parse(localStorage.getItem('expenses')) || [];
+                this.form = document.getElementById('expenseForm');
+                this.tableBody = document.querySelector('#expensesTable tbody');
+
+                this.initializeEventListeners();
+                this.updateTotal();
+                this.renderExpenses();
+            }
+
+            initializeEventListeners() {
+                // Form submission
+                this.form.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.addExpense();
+                });
+
+                // Real-time total calculation
+                ['amount1', 'amount2'].forEach(id => {
+                    document.getElementById(id).addEventListener('input', () => this.updateTotal());
+                });
+            }
+
+            updateTotal() {
+                const amount1 = parseFloat(document.getElementById('amount1').value) || 0;
+                const amount2 = parseFloat(document.getElementById('amount2').value) || 0;
+                const total = amount1 + amount2;
+                document.getElementById('totalAmount').textContent = total.toFixed(2);
+            }
+
+            addExpense() {
+                const expense = {
+                    id: Date.now(),
+                    name: document.getElementById('name').value,
+                    objectName: document.getElementById('objectName').value,
+                    amount1: parseFloat(document.getElementById('amount1').value),
+                    amount2: parseFloat(document.getElementById('amount2').value),
+                    total: parseFloat(document.getElementById('totalAmount').textContent)
+                };
+
+                this.expenses.push(expense);
+                this.saveExpenses();
+                this.renderExpenses();
+                this.form.reset();
+                document.getElementById('totalAmount').textContent = '0.00';
+            }
+
+            deleteExpense(id) {
+                this.expenses = this.expenses.filter(expense => expense.id !== id);
+                this.saveExpenses();
+                this.renderExpenses();
+            }
+
+            saveExpenses() {
+                localStorage.setItem('expenses', JSON.stringify(this.expenses));
+            }
+
+            renderExpenses() {
+                this.tableBody.innerHTML = '';
+                this.expenses.forEach(expense => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${expense.name}</td>
+                        <td>${expense.objectName}</td>
+                        <td>₹${expense.amount1.toFixed(2)}</td>
+                        <td>₹${expense.amount2.toFixed(2)}</td>
+                        <td>₹${expense.total.toFixed(2)}</td>
+                        <td>
+                            <button class="delete-btn" onclick="expenseTracker.deleteExpense(${expense.id})">
+                                Delete
+                            </button>
+                        </td>
+                    `;
+                    this.tableBody.appendChild(row);
+                });
+            }
+        }
+
+        // Initialize the expense tracker
+        const expenseTracker = new ExpenseTracker();
+    </script>
+</body>
+</html>
